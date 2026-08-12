@@ -1,43 +1,114 @@
 const http = require('http');
 
-// Use this if you are on an older Node version (uncomment):
-// require('dotenv').config();
-
 const port = 3000;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 
-const htmlPage = `
+// ---------------------------------------------------------
+// 1. HOME PAGE (with Google Login Button)
+// ---------------------------------------------------------
+const indexPage = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Auth Callback Test</title>
+    <title>Plates - Google Auth Test</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; padding: 2rem; }
-        .success { color: green; }
-        .error { color: red; }
-        pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #0f172a; color: #f8fafc; }
+        .card { background: #1e293b; padding: 2.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; max-width: 400px; width: 90%; border: 1px solid #334155; }
+        h1 { margin-bottom: 0.5rem; font-size: 1.75rem; }
+        p { color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        button { background-color: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; transition: background-color 0.2s; }
+        button:hover { background-color: #1d4ed8; }
+        #debug { margin-top: 20px; padding: 1rem; background: #000; color: #22c55e; font-family: monospace; font-size: 12px; border-radius: 8px; width: 90%; max-width: 500px; text-align: left; display: none; max-height: 200px; overflow-y: auto; border: 1px solid #22c55e33; }
     </style>
 </head>
 <body>
-    <h1>Auth Callback Result</h1>
-    <h2 id="status">Checking authentication status...</h2>
-    <pre id="data">No data yet.</pre>
+    <div class="card">
+        <h1>🍽️ Plates App</h1>
+        <p>Sign in with your Google Account to split bills and manage orders.</p>
+        
+        <button id="loginBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/><path fill="none" d="M1 1h22v22H1z"/></svg>
+            Sign in with Google
+        </button>
+    </div>
+
+    <div id="debug"></div>
 
     <script>
-        // Initialize Supabase client on the frontend
-        const supabaseUrl = '${supabaseUrl}';
-        const supabaseKey = '${supabaseKey}';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const debugEl = document.getElementById('debug');
+        function log(msg) {
+            console.log(msg);
+            debugEl.style.display = 'block';
+            debugEl.innerHTML += new Date().toLocaleTimeString() + ' | ' + msg + '<br>';
+            debugEl.scrollTop = debugEl.scrollHeight;
+        }
+
+        const sb = window.supabase.createClient('${supabaseUrl}', '${supabaseKey}');
+        log('✅ Supabase client initialized');
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            log('🔵 Starting Google OAuth...');
+
+            try {
+                const { data, error } = await sb.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: 'http://localhost:3000/auth/callback',
+                        queryParams: { prompt: 'select_account', access_type: 'offline' },
+                        scopes: 'email profile'
+                    }
+                });
+
+                if (error) {
+                    log('❌ ERROR: ' + error.message);
+                    alert('Error: ' + error.message);
+                }
+            } catch (err) {
+                log('❌ EXCEPTION: ' + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
+`;
+
+// ---------------------------------------------------------
+// 2. CALLBACK PAGE
+// ---------------------------------------------------------
+const callbackPage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Success - Plates</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background: #0f172a; color: #f8fafc; max-width: 800px; margin: 0 auto; }
+        .card { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        pre { background: #090d16; padding: 1rem; border-radius: 8px; overflow-x: auto; color: #38bdf8; font-size: 13px; }
+        a { color: #60a5fa; text-decoration: none; display: inline-block; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Authentication Result</h1>
+        <h2 id="status">Verifying session...</h2>
+        <pre id="data">Loading user metadata...</pre>
+        <a href="/">&larr; Return to Home</a>
+    </div>
+
+    <script>
+        const supabase = window.supabase.createClient('${supabaseUrl}', '${supabaseKey}');
 
         async function checkSession() {
-            // Supabase automatically parses the URL hash fragment (#access_token=...) 
-            // when the client initializes, storing the session in local storage.
             const { data: { session }, error } = await supabase.auth.getSession();
-
             const statusEl = document.getElementById('status');
             const dataEl = document.getElementById('data');
 
@@ -50,28 +121,23 @@ const htmlPage = `
 
             if (session) {
                 statusEl.className = 'success';
-                statusEl.innerText = 'Successfully Authenticated!';
+                statusEl.innerText = '✅ Authenticated Successfully!';
                 dataEl.innerText = JSON.stringify({
-                    user: session.user.email,
-                    fullName: session.user.user_metadata.full_name,
-                    token: session.access_token.substring(0, 20) + '...',
-                    expiresAt: new Date(session.expires_at * 1000).toLocaleString()
+                    id: session.user.id,
+                    email: session.user.email,
+                    name: session.user.user_metadata.full_name,
+                    avatar: session.user.user_metadata.avatar_url,
+                    provider: session.user.app_metadata.provider
                 }, null, 2);
             } else {
                 statusEl.className = 'error';
-                statusEl.innerText = 'No session found in URL.';
-                dataEl.innerText = 'Make sure you were redirected here from the Google login flow.';
+                statusEl.innerText = 'No active session found.';
             }
         }
 
         checkSession();
-
-        // Listen for auth state changes
-        supabase.auth.onAuthStateChange((event, session) => {
-            console.log('Auth event:', event);
-            if (event === 'SIGNED_IN') {
-                checkSession();
-            }
+        supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_IN') checkSession();
         });
     </script>
 </body>
@@ -79,17 +145,20 @@ const htmlPage = `
 `;
 
 const server = http.createServer((req, res) => {
-    // Only serve the callback page if the URL starts with /auth/callback
-    if (req.url.startsWith('/auth/callback')) {
+    if (req.url === '/' || req.url === '') {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(htmlPage);
+        res.end(indexPage);
+    } else if (req.url.startsWith('/auth/callback')) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(callbackPage);
     } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('404 Not Found. You should be accessing /auth/callback');
+        res.end('404 Not Found');
     }
 });
 
 server.listen(port, () => {
-    console.log(`\nLocal test server running at http://localhost:${port}`);
-    console.log('Waiting for auth callback...');
+    console.log('====================================================');
+    console.log(`✅ Plates Auth Test Server running on http://localhost:${port}`);
+    console.log('====================================================');
 });

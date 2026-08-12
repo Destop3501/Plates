@@ -97,6 +97,19 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Backfill any existing users into public.profiles
+INSERT INTO public.profiles (id, email, full_name, avatar_url)
+SELECT 
+    id, 
+    email, 
+    COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', ''),
+    COALESCE(raw_user_meta_data->>'avatar_url', raw_user_meta_data->>'picture', '')
+FROM auth.users
+ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    avatar_url = EXCLUDED.avatar_url;
+
 -- ==============================================================================
 -- 3. INDEXES FOR OPTIMAL QUERY PERFORMANCE
 -- ==============================================================================
