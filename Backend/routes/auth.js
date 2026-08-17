@@ -26,6 +26,23 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/auth/users
+ * Returns list of registered profiles (for testing selection).
+ */
+router.get('/users', async (req, res) => {
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url');
+
+    if (error) throw error;
+    res.json({ users: profiles });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/auth/logout
  * Revokes current authenticated session.
  */

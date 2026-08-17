@@ -152,6 +152,38 @@ const dashboardHtml = `
     </div>
 
     <script>
+        let currentUserId = '00000000-0000-0000-0000-000000000000';
+
+        // Auto-fetch real registered profiles from Supabase to use in test inputs
+        async function loadRealUsers() {
+            try {
+                const res = await fetch('/api/auth/users');
+                const data = await res.json();
+                if (data.users && data.users.length > 0) {
+                    currentUserId = data.users[0].id;
+                    
+                    // Auto-fill friend/payee IDs if profiles exist
+                    const payeeId = data.users.length > 1 ? data.users[1].id : data.users[0].id;
+                    const friendParam = document.getElementById('friend-id-param');
+                    if (friendParam) friendParam.value = payeeId;
+
+                    const debtTextArea = document.getElementById('req-body-debt');
+                    if (debtTextArea) {
+                        debtTextArea.value = JSON.stringify({
+                            payeeId: payeeId,
+                            amount: 28.50,
+                            description: "Grocery & Snacks",
+                            category: "shop"
+                        }, null, 2);
+                    }
+                    console.log('✅ Loaded real user ID from Supabase:', currentUserId);
+                }
+            } catch(e) {
+                console.log('Using default test ID');
+            }
+        }
+        loadRealUsers();
+
         async function testEndpoint(method, path, bodyInputId, responseBoxId) {
             const resBox = document.getElementById(responseBoxId);
             resBox.style.display = 'block';
@@ -172,7 +204,7 @@ const dashboardHtml = `
                     method,
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-user-id': '00000000-0000-0000-0000-000000000000' // Dev test header
+                        'x-user-id': currentUserId // Use real user ID if logged in
                     }
                 };
                 if (bodyData) options.body = JSON.stringify(bodyData);

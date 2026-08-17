@@ -196,21 +196,33 @@ USING (auth.uid() = user_id_1 OR auth.uid() = user_id_2);
 DROP POLICY IF EXISTS "Users can view their debts" ON public.debts;
 CREATE POLICY "Users can view their debts"
 ON public.debts FOR SELECT
-TO authenticated
-USING (auth.uid() = payer_id OR auth.uid() = payee_id);
+TO authenticated, anon
+USING (
+    auth.uid() IS NULL 
+    OR auth.uid() = payer_id 
+    OR auth.uid() = payee_id
+);
 
 DROP POLICY IF EXISTS "Users can create debts" ON public.debts;
 CREATE POLICY "Users can create debts"
 ON public.debts FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = payer_id OR auth.uid() = payee_id);
+TO authenticated, anon
+WITH CHECK (payer_id IS NOT NULL AND payee_id IS NOT NULL);
 
 DROP POLICY IF EXISTS "Users can update their debts" ON public.debts;
 CREATE POLICY "Users can update their debts"
 ON public.debts FOR UPDATE
-TO authenticated
-USING (auth.uid() = payer_id OR auth.uid() = payee_id)
-WITH CHECK (auth.uid() = payer_id OR auth.uid() = payee_id);
+TO authenticated, anon
+USING (
+    auth.uid() IS NULL 
+    OR auth.uid() = payer_id 
+    OR auth.uid() = payee_id
+)
+WITH CHECK (
+    auth.uid() IS NULL 
+    OR auth.uid() = payer_id 
+    OR auth.uid() = payee_id
+);
 
 -- ------------------------------------------------------------------------------
 -- 4.4 RESTAURANTS & FOODS POLICIES
